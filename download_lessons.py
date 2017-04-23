@@ -17,9 +17,33 @@ def get_lesson_list():
     try:
         assert len(lessons) > 0
         print('Found {} lessons.'.format(len(lessons)))
+        return lessons
     except AssertionError:
         print('ERROR. No lesson found. Check provided link.')
         raise
+        
+def get_lesson_links(list):
+    print('Getting lessons links...')
+    urls = []
+    for item in list:
+        urls.append(item.get_attribute('href'))
+    return urls
+
+def get_download_links(list):
+    urls = []
+    for i in range(len(list)):
+        print('Getting download link of lesson {} of {}'.format(i+1, len(list)))
+        driver.get(list[i])
+        video = driver.find_element_by_id('video1')
+        urls.append(video.get_attribute('href'))
+    return urls
+    
+def download(list, path):
+    for i in range(len(list)):
+        print('Downloading lesson {} of {}'.format(i+1, len(list)))
+        command = """bash -c "wget --trust-server-names -P %s '%s'" """ % (path, list[i])
+        subprocess.call(command, shell=True)
+    print('All downloads completed successfully!')
 #--- End function definitions ---
 
 # Define the url of the course and output directory
@@ -33,30 +57,11 @@ driver = webdriver.PhantomJS(phantomjs_dir)
 
 try:
     open_page(course_url)
-    get_lesson_list()
+    lessons = get_lesson_list()
 except:
     print('Script execution was not successful.')
     sys.exit(1)
 
-    
-# Extract the links of the lessons
-print('Getting lessons links...')
-lesson_urls = []
-for item in lessons:
-    lesson_urls.append(item.get_attribute('href'))
-    
-# Open each link and extract the download url
-download_urls = []
-for i in range(len(lesson_urls)):
-    print('Getting download link of lesson {} of {}'.format(i+1, len(lesson_urls)))
-    driver.get(lesson_urls[i])
-    video = driver.find_element_by_id('video1')
-    download_urls.append(video.get_attribute('href'))
-
-# Download files to output_dir
-for i in range(len(download_urls)):
-    print('Downloading lesson {} of {}'.format(i+1, len(download_urls)))
-    command = """bash -c "wget --trust-server-names -P %s '%s'" """ % (output_dir, download_urls[i])
-    subprocess.call(command, shell=True)
-
-print('All downloads completed successfully!')
+lesson_urls = get_lesson_links(lessons)
+download_urls = get_download_links(lesson_urls)
+download(download_urls, output_dir)
