@@ -1,70 +1,50 @@
+#!/usr/bin/python3
+
 from selenium import webdriver
 import subprocess
-import sys
+import argparse
 
-# Function definitions
-def open_page(driver, link):
-    print('Opening browser and course page...')
-    driver.get(link)
-    try:
-        assert "Lezione" in driver.title
-    except AssertionError:
-        print('ERROR. Wrong page title. Check provided link.')
-        raise
-        
-def get_lesson_list(driver):
-    lessons = driver.find_elements_by_partial_link_text('Lezione
-    try:
-        assert len(lessons) > 0
-        print('Found {} lessons.'.format(len(lessons)))
-        return lessons
-    except AssertionError:
-        print('ERROR. No lesson found. Check provided link.')
-        raise
-        
-def get_lesson_links(list):
-    print('Getting lessons links...')
-    urls = []
-    for item in list:
-        urls.append(item.get_attribute('href'))
-    return urls
+# define cmd line arguments
+parser = argparse.ArgumentParser(description='Automatically download lessons from Portale della Didattica')
+parser.add_argument('-u', dest='username', help='Polito username', required=True)
+parser.add_argument('-p', dest='password', help='Polito password', required=True)
+parser.add_argument('-t', '--max-wait', dest='max_wait', type=int, default=10, help='number of seconds to wait for page loading (default 10)')
+parser.add_argument('-b', '--begin', type=int, default=1, help='lesson number to begin downloads (default 1)')
+parser.add_argument('-e', '--end', type=int, help='lesson number to end downloads (default last one)')
+parser.add_argument('course', help='exact name of the course in the Portale')
+parser.add_argument('output_dir', help='output directory')
+args = parser.parse_args()
 
-def get_download_links(driver, list):
-    urls = []
-    for i in range(len(list)):
-        print('Getting download link of lesson {} of {}'.format(i+1, len(list)))
-        driver.get(list[i])
-        video = driver.find_element_by_id('video1')
-        urls.append(video.get_attribute('href'))
-    return urls
-    
-def download(list, path):
-    for i in range(len(list)):
-        print('Downloading lesson {} of {}'.format(i+1, len(list)))
-        command = """bash -c "wget --trust-server-names -P %s '%s'" """ % (path, list[i])
-        subprocess.call(command, shell=True)
-    print('All downloads completed successfully!')
+# open browser on login page
+print('Opening browser towards lessons page...')
+driver = webdriver.Firefox()
+driver.implicitly_wait(args.max_wait)  # seconds
 
-def main():
-    # Define the url of the course and output directory
-    course_url = 'https://elearning.polito.it/gadgets/video/template_video.php?utente=S213513&inc=202712&data=220420171728&token=926189389C4432FEAB407397FCB6A60B'
-    output_dir = '/mnt/d/videolezioni/misure'
-    phantomjs_dir = r'D:\Applicazioni\phantomjs-2.1.1-windows\phantomjs-2.1.1-windows\bin\phantomjs.exe'
+driver.get('https://idp.polito.it/idp/x509mixed-login')
+driver.find_element_by_id('j_username').send_keys(args.username)
+driver.find_element_by_id('j_password').send_keys(args.password)
+driver.find_element_by_id('usernamepassword').click()
+driver.find_element_by_link_text('Portale della Didattica').click()
+driver.find_element_by_partial_link_text(args.course).click()
+driver.find_element_by_partial_link_text('Accedi al materiale e-learning').click()
+driver.find_element_by_partial_link_text('Lessons').click()
 
-    print('Script starting. Press Ctrl + C to cancel.')
+# get lessons list
+print('Getting lessons list...')
+lessons = driver.find_elements_by_partial_link_text('Lezione')
+print('  Found {} lessons.'.format(len(lessons)))
 
-    browser = webdriver.Firefox()
-    #browser = webdriver.PhantomJS(phantomjs_dir)
-    try:
-        open_page(browser, course_url)
-        lessons = get_lesson_list(browser)
-    except:
-        print('Script execution was not successful.')
-        sys.exit(1)
+print('Getting lessons links...')
+if not args.end:
+    urls = [item.get_attribute('href') for item in lessons[args.begin - 1:]]
+else:
+    urls = [item.get_attribute('href') for item in lessons[args.begin - 1:args.end - 1]]
+print('  Will download {} lessons.'.format(len(urls)))
 
-    lesson_urls = get_lesson_links(lessons)
-    download_urls = get_download_links(browser, lesson_urls)
-    download(download_urls, output_dir)
-    
-if __name__ == "__main__":
-    main()
+# get download links
+download_urls = []
+for item in urls:
+    print('Getting download link of lesson {} of {}...'.format(urls.index(item) + 1, len(urls)))
+    driver.get(item)
+    download_urls.append(driver.find_element_by_id('video1').get_attribute('href'))
+
