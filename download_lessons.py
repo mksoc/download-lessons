@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from selenium import webdriver
+from selenium import webdriver, common
 import subprocess
 import argparse
 
@@ -17,17 +17,26 @@ args = parser.parse_args()
 
 # open browser on login page
 print('Opening browser towards lessons page...')
-driver = webdriver.Firefox()
-driver.implicitly_wait(args.max_wait)  # seconds
+driver = webdriver.Firefox(service_log_path='/dev/null')
+driver.implicitly_wait(args.max_wait)  # seconds to wait for page loading on each click
 
 driver.get('https://idp.polito.it/idp/x509mixed-login')
 driver.find_element_by_id('j_username').send_keys(args.username)
 driver.find_element_by_id('j_password').send_keys(args.password)
 driver.find_element_by_id('usernamepassword').click()
-driver.find_element_by_link_text('Portale della Didattica').click()
+
+try:
+    driver.find_element_by_link_text('Portale della Didattica').click()
+except common.exceptions.NoSuchElementException:   
+    print('Error. Could not find Portale della Didattica. Check your login info or that Polito servers are running correctly.')
+
 driver.find_element_by_partial_link_text(args.course).click()
+
 driver.find_element_by_partial_link_text('Accedi al materiale e-learning').click()
-driver.find_element_by_partial_link_text('Lessons').click()
+try:
+    driver.find_element_by_partial_link_text('Lezioni Online').click()
+except common.exceptions.NoSuchElementException:
+    driver.find_element_by_partial_link_text('Lessons').click()
 
 # get lessons list
 print('Getting lessons list...')
@@ -48,3 +57,12 @@ for item in urls:
     driver.get(item)
     download_urls.append(driver.find_element_by_id('video1').get_attribute('href'))
 
+# download lessons
+for item in download_urls:
+    print('Downloading lesson {} of {}'.format(download_urls.index(item) + 1, len(download_urls)))
+    command = """bash -c "wget --trust-server-names -P %s '%s'" """ % (args.output_dir, item)
+    subprocess.call(command, shell=True)
+print('All downloads completed successfully!')
+
+# clean up
+driver.close()
