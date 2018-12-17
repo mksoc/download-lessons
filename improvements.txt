@@ -1,3 +1,4 @@
 - consider popups overlapping on Portale
 - consider courses from past years
 - ask for password not in clear text
+- add possibility to choose begin/end lessons

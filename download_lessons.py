@@ -3,17 +3,22 @@
 from selenium import webdriver, common
 import subprocess
 import argparse
+import os
 
 # define cmd line arguments
 parser = argparse.ArgumentParser(description='Automatically download lessons from Portale della Didattica')
 parser.add_argument('-u', dest='username', help='Polito username', required=True)
 parser.add_argument('-p', dest='password', help='Polito password', required=True)
 parser.add_argument('-t', '--max-wait', dest='max_wait', type=int, default=10, help='number of seconds to wait for page loading (default 10)')
-parser.add_argument('-b', '--begin', type=int, default=1, help='lesson number to begin downloads (default 1)')
-parser.add_argument('-e', '--end', type=int, help='lesson number to end downloads (default last one)')
 parser.add_argument('course', help='exact name of the course in the Portale')
 parser.add_argument('output_dir', help='output directory')
+
+group = parser.add_mutually_exclusive_group()
+group.add_argument('-a', '--all', action='store_true', help='download all lessons (default)')
+group.add_argument('-n', '--newer', action='store_true', help='download only lessons newer than the last present in the output folder')
+
 args = parser.parse_args()
+print(args)
 
 # open browser on login page
 print('Opening browser towards lessons page...')
@@ -44,10 +49,13 @@ lessons = driver.find_elements_by_partial_link_text('Lezione')
 print('  Found {} lessons.'.format(len(lessons)))
 
 print('Getting lessons links...')
-if not args.end:
-    urls = [item.get_attribute('href') for item in lessons[args.begin - 1:]]
+if args.newer:
+    if any([('lez' in item) and ('mp4' in item) for item in os.listdir(args.output_dir)]):
+        latest = max([int(item.split('_')[-1].split('.')[0]) for item in os.listdir(args.output_dir) if 'mp4' in item])
+        urls = [item.get_attribute('href') for item in lessons[latest:]]
 else:
-    urls = [item.get_attribute('href') for item in lessons[args.begin - 1:args.end - 1]]
+    urls = [item.get_attribute('href') for item in lessons]
+
 print('  Will download {} lessons.'.format(len(urls)))
 
 # get download links
@@ -60,7 +68,7 @@ for item in urls:
 # download lessons
 for item in download_urls:
     print('Downloading lesson {} of {}'.format(download_urls.index(item) + 1, len(download_urls)))
-    command = """bash -c "wget --trust-server-names -P %s '%s'" """ % (args.output_dir, item)
+    command = """bash -c "wget --trust-server-names -nc -P %s '%s'" """ % (args.output_dir, item)
     subprocess.call(command, shell=True)
 print('All downloads completed successfully!')
 
