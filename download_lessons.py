@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 
 from selenium import webdriver, common
-import subprocess
 import argparse
 import os
+import urllib.request
 
 # define cmd line arguments
 parser = argparse.ArgumentParser(description='Automatically download lessons from Portale della Didattica')
@@ -18,7 +18,6 @@ group.add_argument('-a', '--all', action='store_true', help='download all lesson
 group.add_argument('-n', '--newer', action='store_true', help='download only lessons newer than the last present in the output folder')
 
 args = parser.parse_args()
-print(args)
 
 # open browser on login page
 print('Opening browser towards lessons page...')
@@ -32,10 +31,14 @@ driver.find_element_by_id('usernamepassword').click()
 
 try:
     driver.find_element_by_link_text('Portale della Didattica').click()
-except common.exceptions.NoSuchElementException:   
+except common.exceptions.NoSuchElementException:  
     print('Error. Could not find Portale della Didattica. Check your login info or that Polito servers are running correctly.')
 
-driver.find_element_by_partial_link_text(args.course).click()
+# try closing something obscuring the course link
+try:
+    driver.find_element_by_partial_link_text(args.course).click()
+except common.exceptions.ElementClickInterceptedException:
+    driver.find_element_by_class_name('close').click()
 
 driver.find_element_by_partial_link_text('Accedi al materiale e-learning').click()
 try:
@@ -68,8 +71,9 @@ for item in urls:
 # download lessons
 for item in download_urls:
     print('Downloading lesson {} of {}'.format(download_urls.index(item) + 1, len(download_urls)))
-    command = """bash -c "wget --trust-server-names -nc -P %s '%s'" """ % (args.output_dir, item)
-    subprocess.call(command, shell=True)
+    actual_url = urllib.request.urlopen(item).geturl()  # follow redirect to actual file
+    with urllib.request.urlopen(actual_url) as response, open('{}/{}'.format(args.output_dir, actual_url.split('/')[-1]), 'wb') as out_file:
+        out_file.write(response.read())
 print('All downloads completed successfully!')
 
 # clean up
