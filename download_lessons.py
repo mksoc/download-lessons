@@ -1,23 +1,11 @@
 #!/usr/bin/python3
 
 from selenium import webdriver, common
-import argparse
+import parser
 import os
 import urllib.request
 
-# define cmd line arguments
-parser = argparse.ArgumentParser(description='Automatically download lessons from Portale della Didattica')
-parser.add_argument('-u', dest='username', help='Polito username', required=True)
-parser.add_argument('-p', dest='password', help='Polito password', required=True)
-parser.add_argument('-t', '--max-wait', dest='max_wait', type=int, default=10, help='number of seconds to wait for page loading (default 10)')
-parser.add_argument('course', help='exact name of the course in the Portale')
-parser.add_argument('output_dir', help='output directory')
-
-group = parser.add_mutually_exclusive_group()
-group.add_argument('-a', '--all', action='store_true', help='download all lessons (default)')
-group.add_argument('-n', '--newer', action='store_true', help='download only lessons newer than the last present in the output folder')
-
-args = parser.parse_args()
+args = parser.setup_parser()
 
 # open browser on login page
 print('Opening browser towards lessons page...')
@@ -56,6 +44,8 @@ if args.newer:
     if any([('lez' in item) and ('mp4' in item) for item in os.listdir(args.output_dir)]):
         latest = max([int(item.split('_')[-1].split('.')[0]) for item in os.listdir(args.output_dir) if 'mp4' in item])
         urls = [item.get_attribute('href') for item in lessons[latest:]]
+elif args.latest:
+    urls = [lessons[-1].get_attribute('href')]
 else:
     urls = [item.get_attribute('href') for item in lessons]
 
