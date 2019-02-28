@@ -10,14 +10,16 @@ class readable_dir(argparse.Action):
         prospective_dir = values
         if not os.path.isdir(prospective_dir):
             raise argparse.ArgumentTypeError("readable_dir:{} is not a valid path".format(prospective_dir))
-        if not os.access(prospective_dir, os.W_OK):
+        if os.access(prospective_dir, os.W_OK):
+            setattr(namespace, self.dest, prospective_dir)
+        else:
             raise argparse.ArgumentTypeError("readable_dir:{} is not a writable dir".format(prospective_dir))
 
 
 def setup_parser():
     """ Function to setup command line arguments in a single place """
 
-    parser = argparse.ArgumentParser('Pippi', description='Automatically download lessons from Portale della Didattica')
+    parser = argparse.ArgumentParser(description='Automatically download lessons from Portale della Didattica')
     parser.add_argument('-u', dest='username', help='Polito username', required=True)
     parser.add_argument('-p', dest='password', help='Polito password', required=True)
     parser.add_argument('-t', '--max-wait', dest='max_wait', type=int, default=10, help='number of seconds to wait for page loading (default 10)')

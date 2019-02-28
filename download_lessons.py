@@ -26,7 +26,8 @@ except common.exceptions.NoSuchElementException:
 try:
     driver.find_element_by_partial_link_text(args.course).click()
 except common.exceptions.ElementClickInterceptedException:
-    driver.find_element_by_class_name('close').click()
+    driver.find_element_by_link_text('Non mostrare più per oggi').click()
+    driver.find_element_by_partial_link_text(args.course).click()
 
 driver.find_element_by_partial_link_text('Accedi al materiale e-learning').click()
 try:
